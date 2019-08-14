@@ -1,9 +1,12 @@
 package stopwatch
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLaps(t *testing.T) {
@@ -203,4 +206,35 @@ func TestTimeTotal(t *testing.T) {
 		t.Errorf("TotalTime after restart must only grow")
 	}
 
+}
+
+func TestObjectFormatting(t *testing.T) {
+	sw := New(0, true)
+	sw.Lap("lap1")
+	sw.SetFormattingMode(FormattingModeJsonSimpleObject)
+	sw.Lap("lap2")
+
+	result := sw.String()
+
+	unmarshalledResult := map[string]interface{}{}
+	err := json.Unmarshal([]byte(result), &unmarshalledResult)
+	assert.NoError(t, err)
+
+	assert.NotEmpty(t, 5, unmarshalledResult["lap1"])
+	assert.NotEmpty(t, 5, unmarshalledResult["lap2"])
+}
+func TestDefaultFormatting(t *testing.T) {
+	sw := New(0, true)
+	sw.Lap("lap1")
+	sw.Lap("lap2")
+
+	result := sw.String()
+	unmarshalledResult := []map[string]interface{}{}
+	err := json.Unmarshal([]byte(result), &unmarshalledResult)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "lap1", unmarshalledResult[0]["state"])
+	assert.NotEmpty(t, unmarshalledResult[0]["time"])
+	assert.Equal(t, "lap2", unmarshalledResult[1]["state"])
+	assert.NotEmpty(t, unmarshalledResult[0]["time"])
 }

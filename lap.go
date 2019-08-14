@@ -15,13 +15,13 @@ type Lap struct {
 }
 
 func (l Lap) String() string {
-	results := fmt.Sprintf("\"state\":\"%s\", \"time\":\"%s\"", l.state, l.formatter(l.duration))
+	results := fmt.Sprintf(`"state":"%s", "time":"%s"`, l.state, l.formatter(l.duration))
 
 	// If lap contains some data, let's merge it
 	if len(l.data) > 0 {
 		items := make([]string, 0)
 		for k, v := range l.data {
-			items = append(items, fmt.Sprintf("\"%s\":\"%s\"", k, v))
+			items = append(items, fmt.Sprintf(`"%s":"%s"`, k, v))
 		}
 		return fmt.Sprintf("{%s, %s}", results, strings.Join(items, ", "))
 	}

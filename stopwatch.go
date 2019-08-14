@@ -14,12 +14,25 @@ func defaultFormatter(duration time.Duration) string {
 // Stopwatch is a non high-resolution timer for recording elapsed time deltas
 // to give you some insight into how long things take for your app
 type Stopwatch struct {
-	start, stop time.Time     // no need for lap, see mark
-	mark        time.Duration // mark is the duration from the start that the most recent lap was started
-	laps        []Lap         //
-	formatter   func(time.Duration) string
+	start, stop    time.Time     // no need for lap, see mark
+	mark           time.Duration // mark is the duration from the start that the most recent lap was started
+	laps           []Lap         //
+	formatter      func(time.Duration) string
+	formattingMode FormattingMode
 	sync.RWMutex
 }
+
+type FormattingMode string
+
+const (
+	// FormattingModeJsonArray formats Stopwatch to the form of an array of laps [{},{},...]
+	FormattingModeJsonArray FormattingMode = "JSON_ARRAY"
+	// FormattingModeJsonSimpleObject formats Stopwatch to the form object with property-per-lap {"Lap1":"10ms", "Lap2":"20ms"}
+	// It's compatitable with ELK. Does not support additional lap data
+	FormattingModeJsonSimpleObject FormattingMode = "JSON_OBJECT"
+
+	defaultFormattingMode FormattingMode = FormattingModeJsonArray
+)
 
 // New creates a new stopwatch with starting time offset by
 // a user defined value. Negative offsets result in a countdown
@@ -28,6 +41,7 @@ func New(offset time.Duration, active bool) *Stopwatch {
 	var sw Stopwatch
 	sw.Reset(offset, active)
 	sw.SetFormatter(defaultFormatter)
+	sw.SetFormattingMode(defaultFormattingMode)
 	return &sw
 }
 
@@ -44,13 +58,26 @@ func (s *Stopwatch) MarshalJSON() ([]byte, error) {
 }
 
 func (s *Stopwatch) String() string {
+
 	results := make([]string, len(s.laps))
 	s.RLock()
 	defer s.RUnlock()
-	for i, v := range s.laps {
-		results[i] = v.String()
+
+	switch defaultedFormattingMode(s.formattingMode) {
+	case FormattingModeJsonSimpleObject:
+		for i, v := range s.laps {
+			results[i] = fmt.Sprintf(`"%s":"%s"`, v.state, v.formatter(v.duration))
+		}
+		return fmt.Sprintf("{%s}", strings.Join(results, ", "))
+	case FormattingModeJsonArray:
+		fallthrough
+	default:
+		for i, v := range s.laps {
+			results[i] = v.String()
+		}
+		return fmt.Sprintf("[%s]", strings.Join(results, ", "))
 	}
-	return fmt.Sprintf("[%s]", strings.Join(results, ", "))
+
 }
 
 // Reset allows the re-use of a Stopwatch instead of creating
@@ -122,7 +149,12 @@ func (s *Stopwatch) LapWithData(state string, data map[string]interface{}) Lap {
 	s.Lock()
 	defer s.Unlock()
 	elapsed := s.ElapsedTime()
-	lap := Lap{formatter: s.formatter, state: state, duration: elapsed - s.mark, data: data}
+	lap := Lap{
+		formatter: s.formatter,
+		state:     state,
+		duration:  elapsed - s.mark,
+		data:      data,
+	}
 	s.mark = elapsed
 	s.laps = append(s.laps, lap)
 	return lap
@@ -135,4 +167,20 @@ func (s *Stopwatch) Laps() []Lap {
 	laps := make([]Lap, len(s.laps))
 	copy(laps, s.laps)
 	return laps
+}
+
+// Laps returns a slice of completed lap times
+func (s *Stopwatch) SetFormattingMode(newMode FormattingMode) {
+	s.Lock()
+	defer s.Unlock()
+	s.formattingMode = newMode
+}
+
+func defaultedFormattingMode(src FormattingMode) FormattingMode {
+
+	if src == "" {
+		return defaultFormattingMode
+	}
+
+	return src
 }
