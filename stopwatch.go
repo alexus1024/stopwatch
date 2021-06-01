@@ -30,6 +30,9 @@ const (
 	// FormattingModeJsonSimpleObject formats Stopwatch to the form object with property-per-lap {"Lap1":"10ms", "Lap2":"20ms"}
 	// It's compatitable with ELK. Does not support additional lap data
 	FormattingModeJsonSimpleObject FormattingMode = "JSON_OBJECT"
+	// FormattingModeJsonMsObject formats Stopwatch to the form object with property-per-lap, where values are numbers {"Lap1":10.1, "Lap2":20.2}
+	// It's compatitable with ELK. Does not support additional lap data
+	FormattingModeJsonMsObject FormattingMode = "JSON_OBJECT_MS"
 
 	defaultFormattingMode FormattingMode = FormattingModeJsonArray
 )
@@ -59,25 +62,38 @@ func (s *Stopwatch) MarshalJSON() ([]byte, error) {
 
 func (s *Stopwatch) String() string {
 
-	results := make([]string, len(s.laps))
 	s.RLock()
 	defer s.RUnlock()
 
 	switch defaultedFormattingMode(s.formattingMode) {
 	case FormattingModeJsonSimpleObject:
-		for i, v := range s.laps {
-			results[i] = fmt.Sprintf(`"%s":"%s"`, v.state, v.formatter(v.duration))
-		}
-		return fmt.Sprintf("{%s}", strings.Join(results, ", "))
+		return s.formatAsObject(func(lap Lap) string {
+			return fmt.Sprintf(`"%s":"%s"`, lap.state, lap.formatter(lap.duration))
+		})
+
+	case FormattingModeJsonMsObject:
+		return s.formatAsObject(func(lap Lap) string {
+			return fmt.Sprintf(`"%s":%.3f`, lap.state, float64(lap.duration.Microseconds())/1000.0) // ms 1234.567
+		})
+
 	case FormattingModeJsonArray:
 		fallthrough
 	default:
+		results := make([]string, len(s.laps))
 		for i, v := range s.laps {
 			results[i] = v.String()
 		}
 		return fmt.Sprintf("[%s]", strings.Join(results, ", "))
 	}
 
+}
+
+func (s *Stopwatch) formatAsObject(lapValueFormatter func(Lap) string) string {
+	results := make([]string, len(s.laps))
+	for i, lap := range s.laps {
+		results[i] = lapValueFormatter(lap)
+	}
+	return fmt.Sprintf("{%s}", strings.Join(results, ", "))
 }
 
 // Reset allows the re-use of a Stopwatch instead of creating

@@ -208,7 +208,7 @@ func TestTimeTotal(t *testing.T) {
 
 }
 
-func TestObjectFormatting(t *testing.T) {
+func TestSimpleObjectFormatting(t *testing.T) {
 	sw := New(0, true)
 	sw.Lap("lap1")
 	sw.SetFormattingMode(FormattingModeJsonSimpleObject)
@@ -220,9 +220,26 @@ func TestObjectFormatting(t *testing.T) {
 	err := json.Unmarshal([]byte(result), &unmarshalledResult)
 	assert.NoError(t, err)
 
-	assert.NotEmpty(t, 5, unmarshalledResult["lap1"])
-	assert.NotEmpty(t, 5, unmarshalledResult["lap2"])
+	assert.IsType(t, "", unmarshalledResult["lap1"]) // is string
+	assert.IsType(t, "", unmarshalledResult["lap2"])
 }
+
+func TestMsObjectFormatting(t *testing.T) {
+	sw := New(0, true)
+	sw.Lap("lap1")
+	sw.SetFormattingMode(FormattingModeJsonMsObject)
+	sw.Lap("lap2")
+
+	result := sw.String()
+
+	unmarshalledResult := map[string]interface{}{}
+	err := json.Unmarshal([]byte(result), &unmarshalledResult)
+	assert.NoError(t, err)
+
+	assert.IsType(t, 1.1, unmarshalledResult["lap1"])
+	assert.IsType(t, 1.1, unmarshalledResult["lap2"])
+}
+
 func TestDefaultFormatting(t *testing.T) {
 	sw := New(0, true)
 	sw.Lap("lap1")
