@@ -145,6 +145,14 @@ func (s *Stopwatch) ElapsedTime() time.Duration {
 	return s.stop.Sub(s.start)
 }
 
+// ElapsedTimeFrom is the time the stopwatch has been active till 'now'
+func (s *Stopwatch) ElapsedTimeFrom(now time.Time) time.Duration {
+	if s.active() {
+		return now.Sub(s.start)
+	}
+	return s.stop.Sub(s.start)
+}
+
 // LapTime is the time since the start of the lap
 func (s *Stopwatch) LapTime() time.Duration {
 	s.RLock()
@@ -162,9 +170,16 @@ func (s *Stopwatch) Lap(state string) Lap {
 // the previous one allowing the user to pass in additional
 // metadata to be recorded.
 func (s *Stopwatch) LapWithData(state string, data map[string]interface{}) Lap {
+	return s.LapWithDataAndTime(time.Now(), state, data)
+}
+
+// LapWithDataAndTime starts a new lap from 'now' timestamp, and returns the length of
+// the previous one allowing the user to pass in additional
+// metadata to be recorded.
+func (s *Stopwatch) LapWithDataAndTime(now time.Time, state string, data map[string]interface{}) Lap {
 	s.Lock()
 	defer s.Unlock()
-	elapsed := s.ElapsedTime()
+	elapsed := s.ElapsedTimeFrom(now)
 	lap := Lap{
 		formatter: s.formatter,
 		state:     state,

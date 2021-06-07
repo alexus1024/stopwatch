@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -14,7 +15,8 @@ func TestLaps(t *testing.T) {
 	sw := New(0, true)
 
 	sw.Lap("Session Create")
-	sw.Lap("Delete File")
+	lapNow := time.Now()
+	sw.LapWithDataAndTime(lapNow, "Delete File", nil)
 	sw.LapWithData("Close DB", map[string]interface{}{
 		"row_count": 2,
 	})
